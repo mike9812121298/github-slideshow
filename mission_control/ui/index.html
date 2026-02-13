@@ -1,0 +1,121 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mission Control</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 2rem; }
+    .tabs button { margin-right: 0.5rem; }
+    .tab { display: none; margin-top: 1rem; }
+    .tab.active { display: block; }
+    label { display: block; margin-top: 0.75rem; }
+    input, select { width: 320px; max-width: 100%; padding: 0.4rem; }
+    .status { margin-top: 0.75rem; padding: 0.5rem; background: #f5f5f5; }
+  </style>
+</head>
+<body>
+  <h1>Mission Control</h1>
+  <div class="tabs">
+    <button id="settingsTabBtn">Settings</button>
+    <button id="healthTabBtn">Health</button>
+  </div>
+
+  <section id="settingsTab" class="tab active">
+    <h2>Settings</h2>
+    <form id="settingsForm">
+      <label>OpenAI API Key
+        <input type="password" id="openaiKey" placeholder="sk-..." autocomplete="off" />
+      </label>
+
+      <label>Model
+        <select id="openaiModel">
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+        </select>
+      </label>
+
+      <h3>WhatsApp (placeholder)</h3>
+      <label>Phone Number ID
+        <input type="text" id="waPhone" placeholder="placeholder" />
+      </label>
+      <label>Business Account ID
+        <input type="text" id="waBusiness" placeholder="placeholder" />
+      </label>
+      <label>Webhook Verify Token
+        <input type="password" id="waToken" placeholder="placeholder" autocomplete="off" />
+      </label>
+
+      <button type="submit" style="margin-top: 1rem;">Save</button>
+    </form>
+    <div id="settingsMessage" class="status"></div>
+  </section>
+
+  <section id="healthTab" class="tab">
+    <h2>Health</h2>
+    <button id="refreshHealth">Refresh</button>
+    <pre id="healthOutput" class="status">Loading...</pre>
+  </section>
+
+  <script>
+    const settingsTab = document.getElementById('settingsTab');
+    const healthTab = document.getElementById('healthTab');
+    document.getElementById('settingsTabBtn').onclick = () => {
+      settingsTab.classList.add('active');
+      healthTab.classList.remove('active');
+    };
+    document.getElementById('healthTabBtn').onclick = () => {
+      healthTab.classList.add('active');
+      settingsTab.classList.remove('active');
+      loadHealth();
+    };
+
+    async function loadSettings() {
+      const res = await fetch('/api/settings');
+      const data = await res.json();
+      document.getElementById('openaiModel').value = data.openai_model || 'gpt-4o-mini';
+      document.getElementById('waPhone').value = data.whatsapp.phone_number_id || '';
+      document.getElementById('waBusiness').value = data.whatsapp.business_account_id || '';
+      document.getElementById('settingsMessage').innerText = data.openai_api_key_set
+        ? `OpenAI key saved (${data.openai_api_key_masked}).`
+        : 'No OpenAI key saved yet.';
+    }
+
+    async function loadHealth() {
+      const res = await fetch('/api/health');
+      const data = await res.json();
+      document.getElementById('healthOutput').innerText = JSON.stringify(data, null, 2);
+    }
+
+    document.getElementById('settingsForm').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const payload = {
+        openai_api_key: document.getElementById('openaiKey').value,
+        openai_model: document.getElementById('openaiModel').value,
+        whatsapp_phone_number_id: document.getElementById('waPhone').value,
+        whatsapp_business_account_id: document.getElementById('waBusiness').value,
+        whatsapp_webhook_verify_token: document.getElementById('waToken').value,
+      };
+
+      const res = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      });
+      const data = await res.json();
+      document.getElementById('openaiKey').value = '';
+      document.getElementById('waToken').value = '';
+      document.getElementById('settingsMessage').innerText = data.openai_api_key_set
+        ? `Settings saved. OpenAI key: ${data.openai_api_key_masked}`
+        : 'Settings saved, but OpenAI key is not set.';
+      await loadHealth();
+    });
+
+    document.getElementById('refreshHealth').addEventListener('click', loadHealth);
+
+    loadSettings();
+    loadHealth();
+  </script>
+</body>
+</html>
